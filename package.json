@@ -1,0 +1,40 @@
+{
+  "name": "crud-in-memory",
+  "description": "CRUD interface for mysql data",
+  "version": "0.0.0",
+  "engines": {
+    "node": ">=6"
+  },
+  "repository": {
+    "url": "https://github.com/possibilities/crud-mysql",
+    "type": "git"
+  },
+  "author": "Mike Bannister <mikebannister@gmail.com>",
+  "main": "transpiled-index.js",
+  "files": [
+    "transpiled-index.js"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "build": "mkdir -p ./dist && async-to-gen ./index.js > ./transpiled-index.js",
+    "prepublish": "npm run build",
+    "test": "ava --fail-fast --verbose",
+    "test:watch": "npm test -- --watch",
+    "lint": "standard index.js test.js",
+    "pretest": "npm run lint"
+  },
+  "devDependencies": {
+    "async-to-gen": "^1.3.0",
+    "ava": "^0.17.0",
+    "babel-cli": "^6.22.2",
+    "babel-eslint": "^7.1.1",
+    "babel-preset-es2015": "^6.22.0",
+    "babel-register": "^6.22.0",
+    "standard": "^8.6.0"
+  },
+  "dependencies": {
+    "lodash.curry": "^4.1.1",
+    "mysql": "^2.12.0",
+    "sqlstring": "^2.2.0"
+  }
+}
