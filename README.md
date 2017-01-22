@@ -72,9 +72,12 @@ console.info(users.length) //-> 0
 ```
 const insertSql = "INSERT INTO users (`username`, `country`) VALUES ('possibilities', 'iceland')"
 await database.query(insertSql)
+
 const selectSql = 'SELECT username, country FROM users WHERE country = iceland'
 const users = await database.query(selectSql)
+
 const { country, username } = users.pop()
+
 console.info(username) //-> possibilities
 console.info(country) //-> iceland
 ```
@@ -84,9 +87,12 @@ Formating and escaping is provided by [sqlstring](https://github.com/mysqljs/sql
 ```
 const insertSql = "INSERT INTO ?? (??) VALUES (?)"
 await database.query(insertSql, ['users', ['username', 'country'], ['possibilities', 'iceland']])
+
 const selectSql = 'SELECT ?? FROM ?? WHERE ?'
 const users = await database.query(selectSql, [['username', 'country'], 'users', { country: 'iceland' }])
+
 const { country, username } = users.pop()
+
 console.info(username) //-> possibilities
 console.info(country) //-> iceland
 ```
