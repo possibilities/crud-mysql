@@ -18,7 +18,7 @@
   "scripts": {
     "build": "mkdir -p ./dist && async-to-gen ./index.js > ./transpiled-index.js",
     "prepublish": "npm run build",
-    "test": "ava --fail-fast --verbose",
+    "test": "ava",
     "test:watch": "npm test -- --watch",
     "lint": "standard index.js test.js",
     "pretest": "npm run lint"
