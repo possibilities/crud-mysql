@@ -1,7 +1,7 @@
 {
   "name": "crud-mysql",
   "description": "CRUD interface for mysql data",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "engines": {
     "node": ">=6"
   },
@@ -47,10 +47,13 @@
       "stage-0"
     ],
     "plugins": [
-      ["transform-runtime", {
-        "polyfill": false,
-        "regenerator": true
-      }]
+      [
+        "transform-runtime",
+        {
+          "polyfill": false,
+          "regenerator": true
+        }
+      ]
     ]
   }
 }
