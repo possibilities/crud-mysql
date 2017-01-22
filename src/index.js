@@ -1,5 +1,5 @@
 import sqlstring from 'sqlstring'
-import runMysqlQuery from './modules/runMysqlQuery'
+import runMysqlQuery from './runMysqlQuery'
 
 const buildInsertQuery = (tableName, item) => {
   const keys = Object.keys(item)

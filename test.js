@@ -1,5 +1,5 @@
 import test from 'ava'
-import mysqlDatabase from './index'
+import mysqlDatabase from './src/index'
 
 const appConfig = {
   host: 'localhost',
