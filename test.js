@@ -149,8 +149,8 @@ test.serial('`query` runs raw sql', async t => {
   const initialFoos = await database.query('SELECT ?? FROM foo', ['bar', 'baz'])
   t.deepEqual(initialFoos, [])
 
-  await database.query("INSERT INTO ?? (??) VALUES (?)", 'foo', ['bar', 'baz'], [1, 'yes'])
-  await database.query("INSERT INTO ?? (??) VALUES (?)", 'foo', ['bar', 'baz'], [2, 'no'])
+  await database.query('INSERT INTO ?? (??) VALUES (?)', 'foo', ['bar', 'baz'], [1, 'yes'])
+  await database.query('INSERT INTO ?? (??) VALUES (?)', 'foo', ['bar', 'baz'], [2, 'no'])
 
   const foo1 = await database.query('SELECT ?? FROM ?? WHERE ?', ['bar', 'baz'], 'foo', { bar: 1 })
   t.deepEqual(foo1[0].bar, 1)
