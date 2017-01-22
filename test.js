@@ -12,17 +12,12 @@ const appConfig = {
   database: 'testdatabase'
 }
 
-const rootConfig = {
-  user: 'root',
-  host: 'localhost'
-}
+const rootConfig = process.env.CIRCLECI
+  ? { user: 'ubuntu', host: 'localhost' }
+  : { user: 'root', host: 'localhost' }
 
 const runMysqlQueryAsApp = runMysqlQuery(appConfig)
 const runMysqlQueryAsRoot = runMysqlQuery(rootConfig)
-
-const createMoofTableSql = `
-)
-`
 
 test.before(async t => {
   await runMysqlQueryAsRoot(
@@ -40,7 +35,6 @@ test.before(async t => {
   await runMysqlQueryAsRoot(
     `CREATE DATABASE testdatabase`
   )
-
   await runMysqlQueryAsApp(
     `CREATE TABLE IF NOT EXISTS foo (
       moof TINYINT,
