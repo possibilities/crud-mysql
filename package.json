@@ -1,7 +1,7 @@
 {
   "name": "crud-in-memory",
   "description": "CRUD interface for mysql data",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "engines": {
     "node": ">=6"
   },
