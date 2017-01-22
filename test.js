@@ -157,3 +157,38 @@ test.serial('`query` runs raw sql', async t => {
   t.deepEqual(foo2[0].bar, 2)
   t.deepEqual(foo2[0].baz, 'no')
 })
+
+test.serial('`query` can be run in a transaction', async t => {
+  const transaction = await database.transaction()
+
+  try {
+    await transaction.start()
+
+    await database.query("INSERT INTO foo (`bar`, `baz`) VALUES (1, 'yes')")
+
+    await transaction.commit()
+  } catch (error) {
+    await transaction.rollback()
+  }
+
+  const foos = await database.query('SELECT * FROM foo')
+  t.deepEqual(foos.length, 1)
+})
+
+test.serial('`query` transactions fail gracefully', async t => {
+  const transaction = await database.transaction()
+
+  try {
+    await transaction.start()
+
+    await database.query("INSERT INTO foo (`bar`, `baz`) VALUES (1, 'yes')")
+    await database.query('INSERT INTO foo (`nonexistent`) VALUES (1)')
+
+    await transaction.commit()
+  } catch (error) {
+    await transaction.rollback()
+  }
+
+  const foos = await database.query('SELECT * FROM foo')
+  t.deepEqual(foos.length, 0)
+})

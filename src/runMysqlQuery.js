@@ -29,11 +29,13 @@ const runMysqlQuery = config => (query, ...queryValues) => {
 
         // Execute the query
         connection.query(finalQuery, (error, results, fields) => {
+          // Close connection before responding
+          connection.release()
+
           if (error) {
             reject(error)
           } else {
             // Release connection and return results
-            connection.release()
             resolve(results)
           }
         })

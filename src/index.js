@@ -48,6 +48,14 @@ const database = config => {
 
   const query = runMysqlQuery(config)
 
+  const transaction = async () => {
+    const start = () => query('START TRANSACTION')
+    const commit = () => query('COMMIT')
+    const rollback = () => query('ROLLBACK')
+
+    return { start, commit, rollback }
+  }
+
   const table = tableName => {
     const create = item => {
       const insertQuery = buildInsertQuery(tableName, item)
@@ -75,7 +83,7 @@ const database = config => {
     return { create, read, update, delete: del }
   }
 
-  return { table, query }
+  return { table, query, transaction }
 }
 
 export default database

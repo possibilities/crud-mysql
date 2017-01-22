@@ -97,6 +97,26 @@ console.info(username) //-> possibilities
 console.info(country) //-> iceland
 ```
 
+#### Transactions
+
+```
+const { start, commit, rollback } = await database.transaction()
+
+try {
+  await start()
+
+  await database.query("INSERT INTO users (`username`) VALUES ('possibilities')")
+  await database.query('INSERT INTO users (`nonexistent`) VALUES ('nonexistent')')
+
+  await commit()
+} catch (error) {
+  await rollback()
+}
+
+const users = await database.query('SELECT * FROM users')
+console.info(users.length) //-> 0
+```
+
 ### Other backends
 
 * [In memory](https://github.com/possibilities/crud-in-memory)
