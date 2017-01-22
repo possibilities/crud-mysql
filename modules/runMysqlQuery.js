@@ -5,7 +5,7 @@ const mysqlPools = {}
 
 const getOrCreateConnectionPool = config => {
   if (!mysqlPools[config.user]) {
-    const poolConfig = Object.assign({}, { connectionLimit: 10 }, config)
+    const poolConfig = { connectionLimit: 10, ...config }
     mysqlPools[config.user] = mysql.createPool(poolConfig)
   }
 

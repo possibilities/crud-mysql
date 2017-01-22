@@ -1,6 +1,3 @@
-import 'babel-register'
-import 'async-to-gen/register'
-
 import test from 'ava'
 import mysqlDatabase from './index'
 
