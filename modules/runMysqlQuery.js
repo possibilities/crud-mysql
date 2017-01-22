@@ -16,13 +16,11 @@ const runMysqlQuery = config => (query, ...queryValues) => {
   const mysqlPool = getOrCreateConnectionPool(config)
 
   return new Promise((resolve, reject) => {
-
     // Open up a new connection
     mysqlPool.getConnection((error, connection) => {
       if (error) {
         reject(error)
       } else {
-
         // If there are any values we assume query is a format string and
         // appply the values
         const finalQuery = queryValues.length
@@ -34,7 +32,6 @@ const runMysqlQuery = config => (query, ...queryValues) => {
           if (error) {
             reject(error)
           } else {
-
             // Release connection and return results
             connection.release()
             resolve(results)
