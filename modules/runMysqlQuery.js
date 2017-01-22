@@ -1,5 +1,4 @@
 import mysql from 'mysql'
-import curry from 'lodash.curry'
 
 const mysqlPools = {}
 
@@ -12,7 +11,7 @@ const getOrCreateConnectionPool = config => {
   return mysqlPools[config.user]
 }
 
-const runMysqlQuery = (config, query) => {
+const runMysqlQuery = (config) => (query) => {
   const mysqlPool = getOrCreateConnectionPool(config)
   return new Promise((resolve, reject) => {
     mysqlPool.getConnection((error, connection) => {
@@ -32,4 +31,4 @@ const runMysqlQuery = (config, query) => {
   })
 }
 
-export default curry(runMysqlQuery)
+export default runMysqlQuery

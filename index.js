@@ -46,34 +46,36 @@ const database = config => {
     throw new Error('mysql config object is required')
   }
 
+  const query = runMysqlQuery(config)
+
   const table = tableName => {
     const create = item => {
       const insertQuery = buildInsertQuery(tableName, item)
-      return runMysqlQuery(config, insertQuery)
+      return query(insertQuery)
     }
 
     const read = async (where, fields = []) => {
       const selectQuery = buildSelectQuery(tableName, where, fields)
-      const results = await runMysqlQuery(config, selectQuery)
+      const results = await query(selectQuery)
       return Promise.resolve(results)
     }
 
     const update = async (where, item) => {
       const updateQuery = buildUpdateQuery(tableName, where, item)
-      const results = await runMysqlQuery(config, updateQuery)
+      const results = await query(updateQuery)
       return Promise.resolve(results)
     }
 
     const del = async where => {
       const deleteQuery = buildDeleteQuery(tableName, where)
-      await runMysqlQuery(config, deleteQuery)
+      await query(deleteQuery)
       return Promise.resolve()
     }
 
     return { create, read, update, delete: del }
   }
 
-  return { table }
+  return { table, query }
 }
 
 export default database

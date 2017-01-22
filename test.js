@@ -3,7 +3,6 @@ import 'async-to-gen/register'
 
 import test from 'ava'
 import mysqlDatabase from './index'
-import runMysqlQuery from './modules/runMysqlQuery'
 
 const appConfig = {
   host: 'localhost',
@@ -16,26 +15,26 @@ const rootConfig = process.env.CIRCLECI
   ? { user: 'ubuntu', host: 'localhost' }
   : { user: 'root', host: 'localhost' }
 
-const runMysqlQueryAsApp = runMysqlQuery(appConfig)
-const runMysqlQueryAsRoot = runMysqlQuery(rootConfig)
+const database = mysqlDatabase(appConfig)
+const databaseAsRoot = mysqlDatabase(rootConfig)
 
 test.before(async t => {
-  await runMysqlQueryAsRoot(
+  await databaseAsRoot.query(
     `CREATE USER IF NOT EXISTS 'testuser'@'%' IDENTIFIED BY 'testpassword'`
   )
-  await runMysqlQueryAsRoot(
+  await databaseAsRoot.query(
     `GRANT ALL PRIVILEGES ON *.* TO 'testuser'@'%' WITH GRANT OPTION`
   )
-  await runMysqlQueryAsRoot(
+  await databaseAsRoot.query(
     `FLUSH PRIVILEGES`
   )
-  await runMysqlQueryAsRoot(
+  await databaseAsRoot.query(
     `DROP DATABASE IF EXISTS testdatabase`
   )
-  await runMysqlQueryAsRoot(
+  await databaseAsRoot.query(
     `CREATE DATABASE testdatabase`
   )
-  await runMysqlQueryAsApp(
+  await database.query(
     `CREATE TABLE IF NOT EXISTS foo (
       moof TINYINT,
       doof VARCHAR(32)
@@ -44,16 +43,14 @@ test.before(async t => {
 })
 
 test.afterEach(async t => {
-  await runMysqlQueryAsApp(`TRUNCATE TABLE foo`)
+  await database.query(`TRUNCATE TABLE foo`)
 })
-
-const database = mysqlDatabase(appConfig)
 
 test('requires config', async t => {
   t.throws(() => mysqlDatabase())
 })
 
-test.serial('create adds item', async t => {
+test.serial('`create` adds item', async t => {
   const fooTable = database.table('foo')
 
   const initialFoos = await fooTable.read({ moof: 1 })
@@ -68,7 +65,7 @@ test.serial('create adds item', async t => {
   t.deepEqual(foos[0].doof, 'yes')
 })
 
-test.serial('update changes fields', async t => {
+test.serial('`update` changes fields', async t => {
   const fooTable = database.table('foo')
 
   await fooTable.create({ moof: 1 })
@@ -78,7 +75,7 @@ test.serial('update changes fields', async t => {
   t.deepEqual(foos[0].doof, 'yes')
 })
 
-test.serial('delete removes an item', async t => {
+test.serial('`delete` removes an item', async t => {
   const fooTable = database.table('foo')
 
   await fooTable.create({ moof: 1 })
@@ -94,7 +91,7 @@ test.serial('delete removes an item', async t => {
   t.deepEqual(foosAfter.map(f => f.moof), [1, 2])
 })
 
-test.serial('empty query returns all items', async t => {
+test.serial('`read` returns all items when empty', async t => {
   const fooTable = database.table('foo')
 
   await fooTable.create({ moof: 1 })
@@ -105,7 +102,7 @@ test.serial('empty query returns all items', async t => {
   t.deepEqual(foos.map(f => f.moof), [1, 2, 3])
 })
 
-test.serial('query returns matching items', async t => {
+test.serial('`read` returns matching items', async t => {
   const fooTable = database.table('foo')
 
   await fooTable.create({ moof: 1, doof: 'no' })
@@ -116,7 +113,7 @@ test.serial('query returns matching items', async t => {
   t.deepEqual(foos.map(f => f.moof), [2, 3])
 })
 
-test.serial('query returns matching items with specified fields', async t => {
+test.serial('`read` returns matching items with specified fields', async t => {
   const fooTable = database.table('foo')
 
   await fooTable.create({ moof: 1, doof: 'no' })
@@ -131,3 +128,19 @@ test.serial('query returns matching items with specified fields', async t => {
   t.deepEqual(Object.keys(foosWithDoof[0]), ['doof'])
   t.deepEqual(Object.keys(foosWithDoof[1]), ['doof'])
 })
+
+test.serial('`query` runs raw sql', async t => {
+  const initialFoos = await database.query('SELECT * FROM foo')
+  t.deepEqual(initialFoos, [])
+
+  await database.query("INSERT INTO foo (`moof`, `doof`) VALUES (1, 'yes')")
+  await database.query("INSERT INTO foo (`moof`, `doof`) VALUES (2, 'no')")
+
+  const updatedFoos = await database.query('SELECT * FROM foo')
+  t.deepEqual(updatedFoos[0].moof, 1)
+  t.deepEqual(updatedFoos[0].doof, 'yes')
+  t.deepEqual(updatedFoos[1].moof, 2)
+  t.deepEqual(updatedFoos[1].doof, 'no')
+})
+
+test.todo('`query` performs sql escaping')
