@@ -1,5 +1,5 @@
 {
-  "name": "crud-in-memory",
+  "name": "crud-mysql",
   "description": "CRUD interface for mysql data",
   "version": "0.0.2",
   "engines": {
