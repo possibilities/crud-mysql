@@ -130,17 +130,33 @@ test.serial('`read` returns matching items with specified fields', async t => {
 })
 
 test.serial('`query` runs raw sql', async t => {
-  const initialFoos = await database.query('SELECT * FROM foo')
+  const initialFoos = await database.query('SELECT moof, doof FROM foo')
   t.deepEqual(initialFoos, [])
 
   await database.query("INSERT INTO foo (`moof`, `doof`) VALUES (1, 'yes')")
   await database.query("INSERT INTO foo (`moof`, `doof`) VALUES (2, 'no')")
 
-  const updatedFoos = await database.query('SELECT * FROM foo')
-  t.deepEqual(updatedFoos[0].moof, 1)
-  t.deepEqual(updatedFoos[0].doof, 'yes')
-  t.deepEqual(updatedFoos[1].moof, 2)
-  t.deepEqual(updatedFoos[1].doof, 'no')
+  const foo1 = await database.query('SELECT `moof`, `doof` FROM `foo` WHERE moof = 1')
+  t.deepEqual(foo1[0].moof, 1)
+  t.deepEqual(foo1[0].doof, 'yes')
+
+  const foo2 = await database.query('SELECT `moof`, `doof` FROM `foo` WHERE moof = 2')
+  t.deepEqual(foo2[0].moof, 2)
+  t.deepEqual(foo2[0].doof, 'no')
 })
 
-test.todo('`query` performs sql escaping')
+test.serial('`query` runs raw sql', async t => {
+  const initialFoos = await database.query('SELECT ?? FROM foo', ['moof', 'doof'])
+  t.deepEqual(initialFoos, [])
+
+  await database.query("INSERT INTO ?? (??) VALUES (?)", 'foo', ['moof', 'doof'], [1, 'yes'])
+  await database.query("INSERT INTO ?? (??) VALUES (?)", 'foo', ['moof', 'doof'], [2, 'no'])
+
+  const foo1 = await database.query('SELECT ?? FROM ?? WHERE ?', ['moof', 'doof'], 'foo', { moof: 1 })
+  t.deepEqual(foo1[0].moof, 1)
+  t.deepEqual(foo1[0].doof, 'yes')
+
+  const foo2 = await database.query('SELECT ?? FROM ?? WHERE ?', ['moof', 'doof'], 'foo', { moof: 2 })
+  t.deepEqual(foo2[0].moof, 2)
+  t.deepEqual(foo2[0].doof, 'no')
+})
