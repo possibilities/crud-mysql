@@ -13,7 +13,7 @@ When developing small CRUD apps it's useful to have a simple abstraction over da
 #### Setup
 
 ```
-import mysqlDatabase from 'crud-mysql'
+import configureDatabase from 'crud-mysql'
 
 const mysqlConfig = {
   user: 'test',
@@ -21,7 +21,7 @@ const mysqlConfig = {
   database: 'test'
 }
 
-const database = mysqlDatabase(config)
+const database = configureDatabase(mysqlConfig)
 const userTable = database.table('users')
 ```
 
