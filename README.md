@@ -6,14 +6,14 @@ CRUD interface for mysql
 
 ### Summary
 
-When developing small CRUD apps it's useful to have a simple abstraction over database operations. This library provides a minimal viable interface over mysq database tables.
+When developing small CRUD apps it's useful to have a simple abstraction over database operations. This library provides a minimal viable interface over mysql, manages a connection pool, and transaction management.
 
 ### Usage
 
 #### Setup
 
 ```
-import configureDatabase from 'crud-mysql'
+import configureMysql from 'crud-mysql'
 
 const mysqlConfig = {
   user: 'test',
@@ -21,8 +21,7 @@ const mysqlConfig = {
   database: 'test'
 }
 
-const database = configureDatabase(mysqlConfig)
-const userTable = database.table('users')
+const database = configureMysql(mysqlConfig)
 ```
 
 See [mysql](https://github.com/mysqljs/mysql) docs for [config](https://github.com/mysqljs/mysql#connection-options) options
@@ -30,8 +29,10 @@ See [mysql](https://github.com/mysqljs/mysql) docs for [config](https://github.c
 #### Creates
 
 ```
-await userTable.create({ id: 1, username: 'possibilities' })
-await userTable.create({ id: 2, username: 'thrivingkings' })
+await database(async query => {
+  await query.create('users', { id: 1, username: 'possibilities' })
+  await query.create('users', { id: 2, username: 'thrivingkings' })
+})
 ```
 
 #### Reads
@@ -39,82 +40,88 @@ await userTable.create({ id: 2, username: 'thrivingkings' })
 Read all rows
 
 ```
-const users = await userTable.read()
-const usernames = users.map(u => u.username)
-console.info(usernames) //-> ['possibilities', 'thrivingkings']
+await database(async query => {
+  const users = await query.read('users')
+  const usernames = users.map(u => u.username)
+  console.info(usernames) //-> ['possibilities', 'thrivingkings']
+})
 ```
 
 Fetch certain rows
 
 ```
-const users = await userTable.read({ id: 1 })
-const { username } = users.pop()
-console.info(username) //-> possibilities
+await database(async query => {
+  const users = await query.read('users', { id: 1 })
+  const { username } = users.pop()
+  console.info(username) //-> possibilities
+})
 ```
 
 #### Updates
 
 ```
-const { country } = await userTable.update({ id: 1, country: 'denmark' })
-console.info(country) //-> denmark
+await database(async query => {
+  const { country } = await query.update('users', { id: 1, country: 'denmark' })
+  console.info(country) //-> denmark
+})
 ```
 
 #### Deletion
 
 ```
-await userTable.delete({ id: 1 })
-const users = userTable.read({ id: 1 })
-console.info(users.length) //-> 0
+await database(async query => {
+  await query.delete('users', { id: 1 })
+  const users = query.read('users', { id: 1 })
+  console.info(users.length) //-> 0
+})
 ```
 
 #### Raw queries
 
 ```
-const insertSql = "INSERT INTO users (`username`, `country`) VALUES ('possibilities', 'iceland')"
-await database.query(insertSql)
+await database(async query => {
+  const insertSql = "INSERT INTO users (`username`, `country`) VALUES ('possibilities', 'iceland')"
+  await query(insertSql)
 
-const selectSql = 'SELECT username, country FROM users WHERE country = iceland'
-const users = await database.query(selectSql)
+  const selectSql = 'SELECT username, country FROM users WHERE country = iceland'
+  const users = await query(selectSql)
 
-const { country, username } = users.pop()
+  const { country, username } = users.pop()
 
-console.info(username) //-> possibilities
-console.info(country) //-> iceland
+  console.info(username) //-> possibilities
+  console.info(country) //-> iceland
+})
 ```
 
 Formating and escaping is provided by [sqlstring](https://github.com/mysqljs/sqlstring)
 
 ```
-const insertSql = "INSERT INTO ?? (??) VALUES (?)"
-await database.query(insertSql, ['users', ['username', 'country'], ['possibilities', 'iceland']])
+await database(async query => {
+  const insertSql = "INSERT INTO ?? (??) VALUES (?)"
+  await query(insertSql, ['users', ['username', 'country'], ['possibilities', 'iceland']])
 
-const selectSql = 'SELECT ?? FROM ?? WHERE ?'
-const users = await database.query(selectSql, [['username', 'country'], 'users', { country: 'iceland' }])
+  const selectSql = 'SELECT ?? FROM ?? WHERE ?'
+  const users = await query(selectSql, [['username', 'country'], 'users', { country: 'iceland' }])
 
-const { country, username } = users.pop()
+  const { country, username } = users.pop()
 
-console.info(username) //-> possibilities
-console.info(country) //-> iceland
+  console.info(username) //-> possibilities
+  console.info(country) //-> iceland
+})
 ```
 
 #### Transactions
 
 ```
-const { start, commit, rollback } = await database.transaction()
+database.withTransaction(async query => {
+  await query("INSERT INTO users (`username`) VALUES ('possibilities')")
+  await query('INSERT INTO users (`nonexistent`) VALUES ('nonexistent')')
+})
 
-try {
-  await start()
-
-  await database.query("INSERT INTO users (`username`) VALUES ('possibilities')")
-  await database.query('INSERT INTO users (`nonexistent`) VALUES ('nonexistent')')
-
-  await commit()
-} catch (error) {
-  await rollback()
-}
-
-const users = await database.query('SELECT * FROM users')
-console.info(users.length) //-> 0
+database(async query => {
+  const users = await query('SELECT * FROM users')
+  console.info(users.length) //-> 0
+})
 ```
 
 ### Other backends

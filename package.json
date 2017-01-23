@@ -15,7 +15,7 @@
     "build": "babel src --out-dir lib",
     "prepublish": "npm run build",
     "test": "ava",
-    "test:watch": "npm test -- --watch",
+    "test:watch": "ava --watch",
     "lint": "standard",
     "pretest": "npm run lint"
   },

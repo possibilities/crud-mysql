@@ -12,183 +12,226 @@ const rootConfig = process.env.CIRCLECI
   ? { user: 'ubuntu', host: 'localhost' }
   : { user: 'root', host: 'localhost' }
 
-const database = mysqlDatabase(appConfig)
+const databaseAsApp = mysqlDatabase(appConfig)
 const databaseAsRoot = mysqlDatabase(rootConfig)
 
 test.before(async t => {
-  await databaseAsRoot.query(
-    `CREATE USER IF NOT EXISTS 'testuser'@'%' IDENTIFIED BY 'testpassword'`
-  )
-  await databaseAsRoot.query(
-    `GRANT ALL PRIVILEGES ON *.* TO 'testuser'@'%' WITH GRANT OPTION`
-  )
-  await databaseAsRoot.query(
-    `FLUSH PRIVILEGES`
-  )
-  await databaseAsRoot.query(
-    `DROP DATABASE IF EXISTS testdatabase`
-  )
-  await databaseAsRoot.query(
-    `CREATE DATABASE testdatabase`
-  )
-  await database.query(
-    `CREATE TABLE IF NOT EXISTS foo (
-      bar TINYINT,
-      baz VARCHAR(32)
-    )`
-  )
+  await databaseAsRoot(async query => {
+    await query(`
+      CREATE USER IF NOT EXISTS 'testuser'@'%'
+      IDENTIFIED BY 'testpassword'
+    `)
+    await query(`
+      GRANT ALL PRIVILEGES ON *.* TO 'testuser'@'%'
+      WITH GRANT OPTION
+    `)
+    await query(`FLUSH PRIVILEGES`)
+    await query(`DROP DATABASE IF EXISTS testdatabase`)
+    await query(`CREATE DATABASE testdatabase`)
+  })
+
+  await databaseAsApp(async query => {
+    await query(
+      `CREATE TABLE IF NOT EXISTS users (
+        username VARCHAR(32),
+        country VARCHAR(32)
+      )`
+    )
+  })
 })
 
-test.afterEach(async t => {
-  await database.query(`TRUNCATE TABLE foo`)
+test.beforeEach(async t => {
+  databaseAsApp(query => query(`TRUNCATE TABLE users`))
 })
 
-test('requires config', async t => {
-  t.throws(() => mysqlDatabase())
-})
+test('requires config', async t => t.throws(() => mysqlDatabase()))
 
 test.serial('`create` adds item', async t => {
-  const fooTable = database.table('foo')
+  await databaseAsApp(async query => {
+    const initialUsers = await query.read('users', { username: 'possibilities' })
+    t.deepEqual(initialUsers.length, 0)
 
-  const initialFoos = await fooTable.read({ bar: 1 })
-  t.deepEqual(initialFoos.length, 0)
+    await query.create('users', {
+      username: 'possibilities',
+      country: 'denmark'
+    })
 
-  await fooTable.create({ bar: 1, baz: 'yes' })
+    const users = await query.read('users', { username: 'possibilities' })
+    t.deepEqual(users.length, 1)
 
-  const foos = await fooTable.read({ bar: 1 })
-  t.deepEqual(foos.length, 1)
-
-  t.deepEqual(foos[0].bar, 1)
-  t.deepEqual(foos[0].baz, 'yes')
+    t.deepEqual(users[0].username, 'possibilities')
+    t.deepEqual(users[0].country, 'denmark')
+  })
 })
 
 test.serial('`update` changes fields', async t => {
-  const fooTable = database.table('foo')
-
-  await fooTable.create({ bar: 1 })
-  await fooTable.update({ bar: 1 }, { baz: 'yes' })
-
-  const foos = await fooTable.read({ bar: 1 })
-  t.deepEqual(foos[0].baz, 'yes')
+  await databaseAsApp(async query => {
+    await query.create('users', { username: 'possibilities' })
+    await query.update(
+      'users',
+      { username: 'possibilities' },
+      { country: 'denmark' }
+    )
+    const users = await query.read('users', { username: 'possibilities' })
+    t.deepEqual(users[0].country, 'denmark')
+  })
 })
 
 test.serial('`delete` removes an item', async t => {
-  const fooTable = database.table('foo')
+  await databaseAsApp(async query => {
+    await query.create('users', { username: 'possibilities' })
+    await query.create('users', { username: 'thrivingkings' })
+    await query.create('users', { username: 'rjz' })
 
-  await fooTable.create({ bar: 1 })
-  await fooTable.create({ bar: 2 })
-  await fooTable.create({ bar: 3 })
+    const usersBefore = await query.read('users')
+    t.deepEqual(usersBefore.map(f => f.username), [
+      'possibilities',
+      'thrivingkings',
+      'rjz'
+    ])
 
-  const foosBefore = await fooTable.read()
-  t.deepEqual(foosBefore.map(f => f.bar), [1, 2, 3])
+    await query.delete('users', { username: 'possibilities' })
 
-  await fooTable.delete({ bar: 3 })
-
-  const foosAfter = await fooTable.read()
-  t.deepEqual(foosAfter.map(f => f.bar), [1, 2])
+    const usersAfter = await query.read('users')
+    t.deepEqual(usersAfter.map(f => f.username), [
+      'thrivingkings',
+      'rjz'
+    ])
+  })
 })
 
 test.serial('`read` returns all items when empty', async t => {
-  const fooTable = database.table('foo')
+  await databaseAsApp(async query => {
+    await query.create('users', { username: 'possibilities' })
+    await query.create('users', { username: 'thrivingkings' })
+    await query.create('users', { username: 'rjz' })
 
-  await fooTable.create({ bar: 1 })
-  await fooTable.create({ bar: 2 })
-  await fooTable.create({ bar: 3 })
-
-  const foos = await fooTable.read()
-  t.deepEqual(foos.map(f => f.bar), [1, 2, 3])
+    const users = await query.read('users')
+    t.deepEqual(users.map(f => f.username), [
+      'possibilities',
+      'thrivingkings',
+      'rjz'
+    ])
+  })
 })
 
 test.serial('`read` returns matching items', async t => {
-  const fooTable = database.table('foo')
+  await databaseAsApp(async query => {
+    await query.create('users', { username: 'possibilities', country: 'iceland' })
+    await query.create('users', { username: 'thrivingkings', country: 'denmark' })
+    await query.create('users', { username: 'rjz', country: 'denmark' })
 
-  await fooTable.create({ bar: 1, baz: 'no' })
-  await fooTable.create({ bar: 2, baz: 'yes' })
-  await fooTable.create({ bar: 3, baz: 'yes' })
-
-  const foos = await fooTable.read({ baz: 'yes' })
-  t.deepEqual(foos.map(f => f.bar), [2, 3])
+    const users = await query.read('users', { country: 'denmark' })
+    t.deepEqual(users.map(f => f.username), ['thrivingkings', 'rjz'])
+  })
 })
 
 test.serial('`read` returns matching items with specified fields', async t => {
-  const fooTable = database.table('foo')
+  await databaseAsApp(async query => {
+    await query.create('users', { username: 'possibilities', country: 'iceland' })
+    await query.create('users', { username: 'thrivingkings', country: 'denmark' })
+    await query.create('users', { username: 'rjz', country: 'denmark' })
 
-  await fooTable.create({ bar: 1, baz: 'no' })
-  await fooTable.create({ bar: 2, baz: 'yes' })
-  await fooTable.create({ bar: 3, baz: 'yes' })
+    const usersWithUsername = await query.read(
+      'users',
+      { country: 'denmark' },
+      ['username']
+    )
+    t.deepEqual(Object.keys(usersWithUsername[0]), ['username'])
+    t.deepEqual(Object.keys(usersWithUsername[1]), ['username'])
 
-  const foosWithBar = await fooTable.read({ baz: 'yes' }, ['bar'])
-  t.deepEqual(Object.keys(foosWithBar[0]), ['bar'])
-  t.deepEqual(Object.keys(foosWithBar[1]), ['bar'])
-
-  const foosWithBaz = await fooTable.read({ baz: 'yes' }, ['baz'])
-  t.deepEqual(Object.keys(foosWithBaz[0]), ['baz'])
-  t.deepEqual(Object.keys(foosWithBaz[1]), ['baz'])
+    const usersWithCountry = await query.read(
+      'users',
+      { country: 'denmark' },
+      ['country']
+    )
+    t.deepEqual(Object.keys(usersWithCountry[0]), ['country'])
+    t.deepEqual(Object.keys(usersWithCountry[1]), ['country'])
+  })
 })
 
 test.serial('`query` runs raw sql', async t => {
-  const initialFoos = await database.query('SELECT bar, baz FROM foo')
-  t.deepEqual(initialFoos, [])
+  await databaseAsApp(async query => {
+    const initialusers = await query('SELECT username, country FROM users')
+    t.deepEqual(initialusers, [])
 
-  await database.query("INSERT INTO foo (`bar`, `baz`) VALUES (1, 'yes')")
-  await database.query("INSERT INTO foo (`bar`, `baz`) VALUES (2, 'no')")
+    await query("INSERT INTO users (`username`, `country`) VALUES ('possibilities', 'denmark')")
+    await query("INSERT INTO users (`username`, `country`) VALUES ('thrivingkings', 'iceland')")
 
-  const foo1 = await database.query('SELECT `bar`, `baz` FROM `foo` WHERE bar = 1')
-  t.deepEqual(foo1[0].bar, 1)
-  t.deepEqual(foo1[0].baz, 'yes')
+    const user1 = await query("SELECT `username`, `country` FROM `users` WHERE username = 'possibilities'")
+    t.deepEqual(user1[0].username, 'possibilities')
+    t.deepEqual(user1[0].country, 'denmark')
 
-  const foo2 = await database.query('SELECT `bar`, `baz` FROM `foo` WHERE bar = 2')
-  t.deepEqual(foo2[0].bar, 2)
-  t.deepEqual(foo2[0].baz, 'no')
+    const user2 = await query("SELECT `username`, `country` FROM `users` WHERE username = 'thrivingkings'")
+    t.deepEqual(user2[0].username, 'thrivingkings')
+    t.deepEqual(user2[0].country, 'iceland')
+  })
 })
 
 test.serial('`query` runs raw sql', async t => {
-  const initialFoos = await database.query('SELECT ?? FROM foo', ['bar', 'baz'])
-  t.deepEqual(initialFoos, [])
+  await databaseAsApp(async query => {
+    const initialusers = await query('SELECT ?? FROM users', ['username', 'country'])
+    t.deepEqual(initialusers, [])
 
-  await database.query('INSERT INTO ?? (??) VALUES (?)', 'foo', ['bar', 'baz'], [1, 'yes'])
-  await database.query('INSERT INTO ?? (??) VALUES (?)', 'foo', ['bar', 'baz'], [2, 'no'])
+    await query(
+      'INSERT INTO ?? (??) VALUES (?)',
+      'users',
+      ['username', 'country'],
+      ['possibilities', 'denmark']
+    )
 
-  const foo1 = await database.query('SELECT ?? FROM ?? WHERE ?', ['bar', 'baz'], 'foo', { bar: 1 })
-  t.deepEqual(foo1[0].bar, 1)
-  t.deepEqual(foo1[0].baz, 'yes')
+    await query(
+      'INSERT INTO ?? (??) VALUES (?)', 'users',
+      ['username', 'country'],
+      ['thrivingkings', 'iceland']
+    )
 
-  const foo2 = await database.query('SELECT ?? FROM ?? WHERE ?', ['bar', 'baz'], 'foo', { bar: 2 })
-  t.deepEqual(foo2[0].bar, 2)
-  t.deepEqual(foo2[0].baz, 'no')
+    const user1 = await query(
+      'SELECT ?? FROM ?? WHERE ?',
+      ['username', 'country'],
+      'users',
+      { username: 'possibilities' }
+    )
+    t.deepEqual(user1[0].username, 'possibilities')
+    t.deepEqual(user1[0].country, 'denmark')
+
+    const user2 = await query(
+      'SELECT ?? FROM ?? WHERE ?',
+      ['username', 'country'],
+      'users',
+      { username: 'thrivingkings' }
+    )
+    t.deepEqual(user2[0].username, 'thrivingkings')
+    t.deepEqual(user2[0].country, 'iceland')
+  })
 })
 
 test.serial('`query` can be run in a transaction', async t => {
-  const transaction = await database.transaction()
+  await databaseAsApp.withTransaction(async query => {
+    await query("INSERT INTO users (`username`, `country`) VALUES ('possibilities', 'denmark')")
+    await query("INSERT INTO users (`username`, `country`) VALUES ('thrivingkings', 'denmark')")
+  })
 
-  try {
-    await transaction.start()
-
-    await database.query("INSERT INTO foo (`bar`, `baz`) VALUES (1, 'yes')")
-
-    await transaction.commit()
-  } catch (error) {
-    await transaction.rollback()
-  }
-
-  const foos = await database.query('SELECT * FROM foo')
-  t.deepEqual(foos.length, 1)
+  await databaseAsApp(async query => {
+    const users = await query('SELECT * FROM users')
+    t.deepEqual(users.length, 2)
+  })
 })
 
 test.serial('`query` transactions fail gracefully', async t => {
-  const transaction = await database.transaction()
+  await databaseAsApp(async query => {
+    const users = await query('SELECT * FROM users')
+    t.deepEqual(users.length, 0)
+  })
 
-  try {
-    await transaction.start()
+  await databaseAsApp.withTransaction(async query => {
+    await query("INSERT INTO users (`username`, `country`) VALUES ('possibilities', 'denmark')")
+    await query("INSERT INTO users (`username`, `country`) VALUES ('thrivingkings', 'denmark')")
+    await query("INSERT INTO users (`nonexistent`) VALUES ('possibilities')")
+  })
 
-    await database.query("INSERT INTO foo (`bar`, `baz`) VALUES (1, 'yes')")
-    await database.query('INSERT INTO foo (`nonexistent`) VALUES (1)')
-
-    await transaction.commit()
-  } catch (error) {
-    await transaction.rollback()
-  }
-
-  const foos = await database.query('SELECT * FROM foo')
-  t.deepEqual(foos.length, 0)
+  await databaseAsApp(async query => {
+    const users = await query('SELECT * FROM users')
+    t.deepEqual(users.length, 0)
+  })
 })

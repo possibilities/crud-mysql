@@ -1,5 +1,5 @@
+import mysql from 'mysql'
 import sqlstring from 'sqlstring'
-import runMysqlQuery from './runMysqlQuery'
 
 const buildInsertQuery = (tableName, item) => {
   const keys = Object.keys(item)
@@ -41,49 +41,100 @@ const buildDeleteQuery = (tableName, where, item) => {
   )
 }
 
-const database = config => {
+const mysqlPools = {}
+
+const ensurePool = config => {
+  if (!mysqlPools[config.user]) {
+    const poolConfig = { connectionLimit: 10, ...config }
+    mysqlPools[config.user] = mysql.createPool(poolConfig)
+  }
+
+  return mysqlPools[config.user]
+}
+
+const getConnection = pool => {
+  return new Promise((resolve, reject) => {
+    pool.getConnection((error, connection) => {
+      if (error) {
+        reject(error)
+      } else {
+        resolve(connection)
+      }
+    })
+  })
+}
+
+const query = connection => (sql, ...sqlValues) => {
+  return new Promise((resolve, reject) => {
+    // If there are any values we assume sql is a format string and
+    // appply the values
+    const finalSql = sqlValues.length
+      ? sqlstring.format(sql, sqlValues)
+      : sql
+
+    // Execute the sql
+    connection.query(finalSql, (error, results, fields) => {
+      if (error) {
+        reject(error)
+      } else {
+        // Release connection and return results
+        resolve(results)
+      }
+    })
+  })
+}
+
+const mysqlDatabase = config => {
   if (!config) {
     throw new Error('mysql config object is required')
   }
 
-  const query = runMysqlQuery(config)
+  const database = async (queryFn, options = { shouldRunWithTransaction: false }) => {
+    const pool = ensurePool(config)
+    const connection = await getConnection(pool)
+    const connectionQuery = query(connection)
 
-  const transaction = async () => {
-    const start = () => query('START TRANSACTION')
-    const commit = () => query('COMMIT')
-    const rollback = () => query('ROLLBACK')
-
-    return { start, commit, rollback }
-  }
-
-  const table = tableName => {
-    const create = item => {
+    connectionQuery.create = (tableName, item) => {
       const insertQuery = buildInsertQuery(tableName, item)
-      return query(insertQuery)
+      return connectionQuery(insertQuery)
     }
 
-    const read = async (where, fields = []) => {
+    connectionQuery.read = (tableName, where, fields = []) => {
       const selectQuery = buildSelectQuery(tableName, where, fields)
-      const results = await query(selectQuery)
-      return Promise.resolve(results)
+      return connectionQuery(selectQuery)
     }
 
-    const update = async (where, item) => {
+    connectionQuery.update = async (tableName, where, item) => {
       const updateQuery = buildUpdateQuery(tableName, where, item)
-      const results = await query(updateQuery)
-      return Promise.resolve(results)
+      return connectionQuery(updateQuery)
     }
 
-    const del = async where => {
+    connectionQuery.delete = async (tableName, where) => {
       const deleteQuery = buildDeleteQuery(tableName, where)
-      await query(deleteQuery)
-      return Promise.resolve()
+      await connectionQuery(deleteQuery)
     }
 
-    return { create, read, update, delete: del }
+    const { shouldRunWithTransaction } = options
+
+    if (shouldRunWithTransaction) await connectionQuery('START TRANSACTION')
+
+    try {
+      await queryFn(connectionQuery)
+      if (shouldRunWithTransaction) await connectionQuery('COMMIT')
+    } catch (error) {
+      if (shouldRunWithTransaction) await connectionQuery('ROLLBACK')
+    } finally {
+      connection.release()
+    }
+
+    return Promise.resolve()
   }
 
-  return { table, query, transaction }
+  const databaseWithTransaction = queryFn => database(queryFn, { shouldRunWithTransaction: true })
+
+  database.withTransaction = databaseWithTransaction
+
+  return database
 }
 
-export default database
+export default mysqlDatabase
